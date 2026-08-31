@@ -113,12 +113,12 @@ fn negated(hay: &str, needle: &str) -> bool {
 }
 
 const CITIES: &[(&str, &[&str])] = &[
-    ("berlin", &["berlin", "german capital"]),
-    ("paris", &["paris", "french capital"]),
-    ("london", &["london", "british capital", "uk capital"]),
-    ("tokyo", &["tokyo", "japanese capital"]),
-    ("rome", &["rome", "italian capital"]),
-    ("madrid", &["madrid", "spanish capital"]),
+    ("berlin", &["berlin", "german capital", "capital of germany", "germany s capital"]),
+    ("paris", &["paris", "french capital", "capital of france", "france s capital"]),
+    ("london", &["london", "british capital", "uk capital", "capital of england", "capital of britain"]),
+    ("tokyo", &["tokyo", "japanese capital", "capital of japan"]),
+    ("rome", &["rome", "italian capital", "capital of italy"]),
+    ("madrid", &["madrid", "spanish capital", "capital of spain"]),
     ("newyork", &["new york", "nyc", "new york city"]),
     ("losangeles", &["los angeles", "l a"]),
     ("sanfrancisco", &["san francisco", "s f"]),
@@ -197,6 +197,7 @@ const SKY_WORDS: &[(&str, Sky)] = &[
     ("clouds", Sky::Cloud),
     ("mainly clear", Sky::Clear),
     ("mostly sunny", Sky::Clear),
+    ("partly sunny", Sky::Clear),
     ("sunshine", Sky::Clear),
     ("sunny", Sky::Clear),
     ("clear skies", Sky::Clear),
@@ -228,8 +229,8 @@ fn extract_skies(n: &str) -> HashSet<u8> {
 fn extract_days(n: &str) -> HashSet<&'static str> {
     let mut out = HashSet::new();
     for (id, aliases) in [
-        ("today", &["today", "this afternoon", "this morning", "tonight"][..]),
-        ("tomorrow", &["tomorrow", "next day"][..]),
+        ("today", &["today", "this afternoon", "this morning", "tonight", "this evening", "overnight"][..]),
+        ("tomorrow", &["tomorrow", "next day", "following day"][..]),
         ("monday", &["monday"][..]),
         ("tuesday", &["tuesday"][..]),
         ("wednesday", &["wednesday"][..]),
@@ -283,10 +284,28 @@ fn extract_temps_c(n: &str) -> Vec<f64> {
             || window.contains("°c")
             || toks[i].ends_with('c')
             || window.split_whitespace().any(|w| w == "c");
+        let next = if i + 1 < toks.len() { toks[i + 1] } else { "" };
+        let pct = next == "%" || next.starts_with("percent") || next == "chance";
         if is_f {
             out.push((v - 32.0) * 5.0 / 9.0);
-        } else if is_c || window.contains("degree") {
+        } else if is_c {
             out.push(v);
+        } else if window.contains("degree") {
+            // "72 degrees" without F/C: F-range is Fahrenheit, else Celsius.
+            if (50.0..=120.0).contains(&v) {
+                out.push((v - 32.0) * 5.0 / 9.0);
+            } else {
+                out.push(v);
+            }
+        } else if !pct
+            && (50.0..=120.0).contains(&v)
+            && !window.contains("mph")
+            && !window.contains("km")
+            && !window.contains("mm")
+            && !window.contains("m/s")
+            && !window.contains("wind")
+        {
+            out.push((v - 32.0) * 5.0 / 9.0);
         }
     }
     out
@@ -584,10 +603,9 @@ pub fn evaluate(question: &str, ground_truth: &str, miner_answer: &str) -> f32 {
     let mf = extract_facts(miner);
     let lex = jaccard(if gt.is_empty() { question } else { gt }, miner);
 
-    // Exact 1406 ranking (official 15/15). Stretch is monotonic so wins stay.
-    // 2767 (k=32, hinge 0.36) kept 15/15 but margin 0.748 vs champion 0.860.
-    // Steeper k=70 around 0.335 pushes 0.40 paraphrases to ~0.99 and 0.30
-    // near-copies down, which is the 0.11 gap we still need.
+    // 1406 ranking + 2767 stretch (best official: 15/15, margin 0.748).
+    // 2774 steeper hinge crushed some goods and dropped margin to 0.734.
+    // Extra F-range / capital-of aliases lift paraphrases in RAW space.
     let raw = if contradiction(&gf, &mf, &qf) {
         clamp01(0.05 * lex)
     } else if let Some(facts) = fact_score(&gf, &mf, &qf) {
@@ -605,7 +623,7 @@ fn stretch(s: f32) -> f32 {
     if s >= 1.0 {
         return 1.0;
     }
-    let x = 70.0 * (s - 0.335);
+    let x = 32.0 * (s - 0.36);
     clamp01(1.0 / (1.0 + (-x).exp()))
 }
 
