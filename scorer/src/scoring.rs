@@ -417,9 +417,14 @@ fn extract_facts(s: &str) -> Facts {
 fn opposite_sky(a: u8, b: u8) -> bool {
     use Sky::*;
     let pair = |x, y| (a == x as u8 && b == y as u8) || (a == y as u8 && b == x as u8);
+    // Clear vs Cloud was missing: "sunny 22C Berlin" vs "cloudy 22C Berlin"
+    // is a high-lex near-copy that 2767 stretched to ~1, which capped
+    // official margin at 0.748. Fog is the same kind of cover swap.
     pair(Clear, Rain)
         || pair(Clear, Storm)
         || pair(Clear, Snow)
+        || pair(Clear, Cloud)
+        || pair(Clear, Fog)
         || pair(Cloud, Storm)
         || pair(Rain, Snow)
         || pair(Storm, Snow)
@@ -603,9 +608,8 @@ pub fn evaluate(question: &str, ground_truth: &str, miner_answer: &str) -> f32 {
     let mf = extract_facts(miner);
     let lex = jaccard(if gt.is_empty() { question } else { gt }, miner);
 
-    // 1406 ranking + 2767 stretch (best official: 15/15, margin 0.748).
-    // 2774 steeper hinge crushed some goods and dropped margin to 0.734.
-    // Extra F-range / capital-of aliases lift paraphrases in RAW space.
+    // 1406 ranking + 2767 stretch (15/15, margin 0.748). Clear vs Cloud/Fog
+    // now contradicts so sunny/cloudy near-copies do not stretch to 1.
     let raw = if contradiction(&gf, &mf, &qf) {
         clamp01(0.05 * lex)
     } else if let Some(facts) = fact_score(&gf, &mf, &qf) {
@@ -661,6 +665,15 @@ mod tests {
         let gt = "Miami today: sunny, 31C, no rain.";
         let bad = "Miami today: thunderstorms and heavy rain, 31C.";
         assert!(evaluate(q, gt, bad) < 0.05);
+    }
+
+    #[test]
+    fn sunny_vs_cloudy_is_low() {
+        let q = "Berlin forecast";
+        let gt = "Berlin tomorrow sunny 22C";
+        let bad = "Berlin tomorrow cloudy 22C";
+        let s = evaluate(q, gt, bad);
+        assert!(s < 0.15, "sunny-vs-cloudy={s}");
     }
 
     #[test]
