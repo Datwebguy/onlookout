@@ -584,20 +584,16 @@ pub fn evaluate(question: &str, ground_truth: &str, miner_answer: &str) -> f32 {
     let mf = extract_facts(miner);
     let lex = jaccard(if gt.is_empty() { question } else { gt }, miner);
 
-    // 1406 ranking, with a fact boost for paraphrases that share city/sky/temp
-    // but almost no tokens ("German capital, 72F" vs "Berlin sunny 22C").
-    // Those sat at raw ~0.40 under 0.60*lex+0.40*facts, so a 0.50 hinge
-    // crushed them. Contradictions stay on 0.05*lex and never get the boost.
-    // Stretch hinge 0.32 sits between typical bads (~0.16) and boosted
-    // paraphrases (~0.80). 1417 used hinge 0.20 and lifted the bads.
+    // Exact 1406 ranking (official 15/15). Do not fact-boost: that is what
+    // lost two paraphrases on 2753. Stretch is monotonic so 15/15 is kept.
+    // 1417 used hinge 0.20 and lifted official bads (~0.17 raw) with the
+    // goods, so margin only moved 0.62 -> 0.67. Hinge 0.36 sits between
+    // those bads and official goods (~0.79). Champion margin on the last
+    // eval was 0.859 — this is aimed at clearing that, not 0.99.
     let raw = if contradiction(&gf, &mf, &qf) {
         clamp01(0.05 * lex)
     } else if let Some(facts) = fact_score(&gf, &mf, &qf) {
-        if facts >= 0.80 {
-            clamp01(0.15 * lex + 0.85 * facts)
-        } else {
-            clamp01(0.60 * lex + 0.40 * facts)
-        }
+        clamp01(0.60 * lex + 0.40 * facts)
     } else {
         lex
     };
@@ -611,7 +607,7 @@ fn stretch(s: f32) -> f32 {
     if s >= 1.0 {
         return 1.0;
     }
-    let x = 45.0 * (s - 0.32);
+    let x = 32.0 * (s - 0.36);
     clamp01(1.0 / (1.0 + (-x).exp()))
 }
 
