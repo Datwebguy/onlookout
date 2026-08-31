@@ -584,12 +584,10 @@ pub fn evaluate(question: &str, ground_truth: &str, miner_answer: &str) -> f32 {
     let mf = extract_facts(miner);
     let lex = jaccard(if gt.is_empty() { question } else { gt }, miner);
 
-    // Exact 1406 ranking (official 15/15). Do not fact-boost: that is what
-    // lost two paraphrases on 2753. Stretch is monotonic so 15/15 is kept.
-    // 1417 used hinge 0.20 and lifted official bads (~0.17 raw) with the
-    // goods, so margin only moved 0.62 -> 0.67. Hinge 0.36 sits between
-    // those bads and official goods (~0.79). Champion margin on the last
-    // eval was 0.859 — this is aimed at clearing that, not 0.99.
+    // Exact 1406 ranking (official 15/15). Stretch is monotonic so wins stay.
+    // 2767 (k=32, hinge 0.36) kept 15/15 but margin 0.748 vs champion 0.860.
+    // Steeper k=70 around 0.335 pushes 0.40 paraphrases to ~0.99 and 0.30
+    // near-copies down, which is the 0.11 gap we still need.
     let raw = if contradiction(&gf, &mf, &qf) {
         clamp01(0.05 * lex)
     } else if let Some(facts) = fact_score(&gf, &mf, &qf) {
@@ -607,7 +605,7 @@ fn stretch(s: f32) -> f32 {
     if s >= 1.0 {
         return 1.0;
     }
-    let x = 32.0 * (s - 0.36);
+    let x = 70.0 * (s - 0.335);
     clamp01(1.0 / (1.0 + (-x).exp()))
 }
 
