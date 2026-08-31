@@ -1,0 +1,17 @@
+.env
+**/.env
+**/.env.*
+**/__pycache__/
+**/*.pyc
+.idea/
+.vscode/
+scorer/target/
+scorer/minilm/
+scorer/pkg/
+agent/node_modules/
+wrapper/__pycache__/
+*.log
+agent/agent_receipts.jsonl
+agent/paid_receipts.jsonl
+scripts/register_*.py
+scripts/reregister_*.py

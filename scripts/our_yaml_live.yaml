@@ -1,0 +1,82 @@
+version: "1"
+kind: miner
+id: 910
+slug: onlookout-weather
+name: OnLookout Weather Forecast
+description: >
+  Structured WEATHER_FORECAST miner. Open Meteo primary with optional fusion, confidence, and risk flags
+
+base_url: https://onlookout.fly.dev
+
+docs:
+  website: https://onlookout.fly.dev
+  repository: https://github.com/Datwebguy/onlookout
+  twitter: https://x.com/Datweb3guy
+
+auth:
+  type: none
+
+endpoints:
+  - path: /forecast
+    external_path: /v1/forecast
+    method: GET
+    description: Hourly weather forecast for a latitude and longitude
+    param_map:
+      lat: latitude
+      lon: longitude
+
+semantics:
+  signal_mapping:
+    confidence_field: confidence
+    label_field: forecast.0.conditions
+    reason_field: source
+  supported_intents:
+    - WEATHER_FORECAST
+
+on_chain:
+  description: OnLookout weather_forecast snapshot for on chain settlement
+  transform: direct
+  min_price_usdc: 0.01
+  fields:
+    strings:
+      - index: 0
+        name: as_of
+        description: ISO 8601 UTC timestamp of forecast assembly
+        source_path: ISO 8601 UTC timestamp of forecast assembly
+      - index: 1
+        name: location_name
+        description: Location name string
+        source_path: location.name
+      - index: 2
+        name: first_conditions
+        description: Conditions for the first forecast hour
+        source_path: forecast.0.conditions
+    integers:
+      - index: 0
+        name: temp_c_x100
+        description: First hour temperat ure Celsius times 100
+        source_path: forecast.0.temp_c
+        multiplier: 100
+      - index: 1
+        name: precip_mm_x100
+        description: First hour precipitation mm times 100
+        source_path: forecast.0.precip_mm
+        multiplier: 100
+      - index: 2
+        name: wind_ms_x100
+        description: First hour wind speed m/s times 100
+        source_path: forecast.0.wind_ms
+        multiplier: 100
+      - index: 3
+        name: confidence_x10000
+        description: Confidence 0 to 1 scaled by 10000
+        source_path: confidence
+        multiplier: 10000
+  request:
+    - endpoint: forecast
+      method: GET
+      query_params:
+        latitude: { source: strings.0, type: float }
+        longitude: { source: strings.1, type: float }
+        hours: { source: numbers.0, optional: true, type: int }
+        name: { source: strings.2, optional: true }

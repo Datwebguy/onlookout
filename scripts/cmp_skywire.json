@@ -1,0 +1,32 @@
+{
+ "intent": "WEATHER_FORECAST",
+ "location": "Berlin",
+ "country": "Germany",
+ "latitude": 52.52437,
+ "longitude": 13.41053,
+ "forecast_days": 2,
+ "days": [
+  {
+   "date": "2026-08-24",
+   "label": "today",
+   "high_c": 20.6,
+   "low_c": 11.4,
+   "condition": "overcast",
+   "weather_code": 3,
+   "precipitation_probability_percent": 0
+  },
+  {
+   "date": "2026-08-25",
+   "label": "tomorrow",
+   "high_c": 24.1,
+   "low_c": 13.6,
+   "condition": "overcast",
+   "weather_code": 3,
+   "precipitation_probability_percent": 0
+  }
+ ],
+ "summary": "Berlin forecast: today high 21C low 11C overcast; tomorrow high 24C low 14C overcast.",
+ "confidence": 0.95,
+ "source": "open-meteo daily forecast",
+ "as_of": "2026-08-24T21:48:41.966Z"
+}
