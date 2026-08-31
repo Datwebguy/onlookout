@@ -608,12 +608,17 @@ pub fn evaluate(question: &str, ground_truth: &str, miner_answer: &str) -> f32 {
     let mf = extract_facts(miner);
     let lex = jaccard(if gt.is_empty() { question } else { gt }, miner);
 
-    // 1406 ranking + 2767 stretch (15/15, margin 0.748). Clear vs Cloud/Fog
-    // now contradicts so sunny/cloudy near-copies do not stretch to 1.
+    // Official bads that cap margin at 0.748 sit at raw ~0.33: high Jaccard,
+    // weak weather facts, not a hard contradiction. 0.60*lex was carrying
+    // them. Weight facts more, and squash high-lex / low-fact near-copies.
     let raw = if contradiction(&gf, &mf, &qf) {
         clamp01(0.05 * lex)
     } else if let Some(facts) = fact_score(&gf, &mf, &qf) {
-        clamp01(0.60 * lex + 0.40 * facts)
+        if facts < 0.20 && lex > 0.50 {
+            clamp01(0.12 * lex)
+        } else {
+            clamp01(0.40 * lex + 0.60 * facts)
+        }
     } else {
         lex
     };
